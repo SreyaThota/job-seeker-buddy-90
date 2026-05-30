@@ -20,10 +20,24 @@ export const Route = createFileRoute("/_app/jobs")({
 
 function AddJobPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const fn = useServerFn(addJob);
   const [url, setUrl] = useState("");
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const { data: hasResume, isLoading: checkingResume } = useQuery({
+    queryKey: ["profile-resume", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("resume_text")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return !!data?.resume_text && data.resume_text.length > 20;
+    },
+    enabled: !!user,
+  });
 
   const submit = async () => {
     if (!url && pasted.length < 50) {
