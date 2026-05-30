@@ -8,6 +8,7 @@ export function createLovableAiGatewayProvider(lovableApiKey: string) {
       "Lovable-API-Key": lovableApiKey,
       "X-Lovable-AIG-SDK": "vercel-ai-sdk",
     },
+    supportsStructuredOutputs: true,
   });
 }
 
