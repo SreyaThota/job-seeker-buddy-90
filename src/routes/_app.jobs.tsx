@@ -64,7 +64,7 @@ function AddJobPage() {
       <div>
         <h1 className="font-display text-3xl font-bold">Add a job</h1>
         <p className="text-sm text-muted-foreground">
-          Paste a job link from LinkedIn, Greenhouse, Lever, Wellfound, or the full description.
+          Paste a link from LinkedIn, Greenhouse, Lever, or Wellfound — or the full description. We'll flag roles that look German-only.
         </p>
       </div>
 
