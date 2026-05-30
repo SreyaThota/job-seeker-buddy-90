@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Sparkles, Link2, FileText, AlertTriangle, UserCog } from "lucide-react";
+import { Sparkles, Link2, FileText, UserCog } from "lucide-react";
 
 export const Route = createFileRoute("/_app/jobs")({
   head: () => ({ meta: [{ title: "Add job — ApplyAgent" }] }),
