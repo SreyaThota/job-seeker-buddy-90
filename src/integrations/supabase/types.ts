@@ -14,7 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      jobs: {
+        Row: {
+          applied_at: string | null
+          company: string
+          confidence: string | null
+          contract_type: string | null
+          cover_letter: string | null
+          created_at: string
+          description: string | null
+          fit_reasoning: string | null
+          follow_up_at: string | null
+          id: string
+          interview_prep: string | null
+          keywords: Json | null
+          learning_gaps: Json | null
+          location: string | null
+          match_score: number | null
+          matched_skills: Json | null
+          missing_skills: Json | null
+          notes: string | null
+          posted_at: string | null
+          recruiter_message: string | null
+          remote_type: string | null
+          source: string | null
+          status: Database["public"]["Enums"]["job_status"]
+          tailored_resume: string | null
+          title: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          company: string
+          confidence?: string | null
+          contract_type?: string | null
+          cover_letter?: string | null
+          created_at?: string
+          description?: string | null
+          fit_reasoning?: string | null
+          follow_up_at?: string | null
+          id?: string
+          interview_prep?: string | null
+          keywords?: Json | null
+          learning_gaps?: Json | null
+          location?: string | null
+          match_score?: number | null
+          matched_skills?: Json | null
+          missing_skills?: Json | null
+          notes?: string | null
+          posted_at?: string | null
+          recruiter_message?: string | null
+          remote_type?: string | null
+          source?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          tailored_resume?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          company?: string
+          confidence?: string | null
+          contract_type?: string | null
+          cover_letter?: string | null
+          created_at?: string
+          description?: string | null
+          fit_reasoning?: string | null
+          follow_up_at?: string | null
+          id?: string
+          interview_prep?: string | null
+          keywords?: Json | null
+          learning_gaps?: Json | null
+          location?: string | null
+          match_score?: number | null
+          matched_skills?: Json | null
+          missing_skills?: Json | null
+          notes?: string | null
+          posted_at?: string | null
+          recruiter_message?: string | null
+          remote_type?: string | null
+          source?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          tailored_resume?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          candidate_summary: string | null
+          created_at: string
+          daily_target: number | null
+          degree: string | null
+          email: string | null
+          expected_graduation: string | null
+          full_name: string | null
+          github_url: string | null
+          id: string
+          linkedin_url: string | null
+          phone: string | null
+          portfolio_url: string | null
+          preferred_locations: string | null
+          resume_text: string | null
+          role_keywords: string | null
+          skills: Json | null
+          university: string | null
+          updated_at: string
+          work_authorization: string | null
+        }
+        Insert: {
+          candidate_summary?: string | null
+          created_at?: string
+          daily_target?: number | null
+          degree?: string | null
+          email?: string | null
+          expected_graduation?: string | null
+          full_name?: string | null
+          github_url?: string | null
+          id: string
+          linkedin_url?: string | null
+          phone?: string | null
+          portfolio_url?: string | null
+          preferred_locations?: string | null
+          resume_text?: string | null
+          role_keywords?: string | null
+          skills?: Json | null
+          university?: string | null
+          updated_at?: string
+          work_authorization?: string | null
+        }
+        Update: {
+          candidate_summary?: string | null
+          created_at?: string
+          daily_target?: number | null
+          degree?: string | null
+          email?: string | null
+          expected_graduation?: string | null
+          full_name?: string | null
+          github_url?: string | null
+          id?: string
+          linkedin_url?: string | null
+          phone?: string | null
+          portfolio_url?: string | null
+          preferred_locations?: string | null
+          resume_text?: string | null
+          role_keywords?: string | null
+          skills?: Json | null
+          university?: string | null
+          updated_at?: string
+          work_authorization?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +181,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      job_status:
+        | "saved"
+        | "to_apply"
+        | "applied"
+        | "interview"
+        | "rejected"
+        | "offer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +314,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      job_status: [
+        "saved",
+        "to_apply",
+        "applied",
+        "interview",
+        "rejected",
+        "offer",
+      ],
+    },
   },
 } as const
