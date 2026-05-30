@@ -116,16 +116,6 @@ function AddJobPage() {
         <Button onClick={submit} disabled={busy || !hasResume} className="w-full gap-2">
           <Sparkles className="h-4 w-4" />
           {busy ? "Analyzing fit & scoring…" : "Analyze & score this job"}
-        </Button>
-
-        <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
-          <div className="flex gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>
-              You're filtering for English-speaking roles. We'll flag postings that look like they require German so you can skip them.
-            </span>
-          </div>
-        </div>
       </Card>
     </div>
   );
