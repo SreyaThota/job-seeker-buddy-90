@@ -269,3 +269,157 @@ ${(job.description ?? "").slice(0, 6000)}`,
 
     return output;
   });
+
+// ---------- Bulk import from Berlin Startup Jobs ----------
+
+const DEFAULT_BOARDS = [
+  "https://berlinstartupjobs.com/jobs-by-types/internship/",
+  "https://berlinstartupjobs.com/jobs-by-types/working-student/",
+  "https://berlinstartupjobs.com/skill-areas/ai/",
+];
+
+function extractJobUrlsFromListing(html: string): string[] {
+  const urls = new Set<string>();
+  const re = /href="(https:\/\/berlinstartupjobs\.com\/[^"#?]+\/)"/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const u = m[1];
+    if (/\/(jobs-by-types|skill-areas|companies|cities|page|category|tag|author|wp-|feed)\//i.test(u)) continue;
+    if (u.match(/berlinstartupjobs\.com\/?$/)) continue;
+    const path = u.replace("https://berlinstartupjobs.com/", "").replace(/\/$/, "");
+    if (path.split("/").length === 1 && path.length > 8) urls.add(u);
+  }
+  return Array.from(urls);
+}
+
+export const bulkImportJobs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        boards: z.array(z.string().url()).optional(),
+        min_score: z.number().min(0).max(100).default(60),
+        max_keep: z.number().min(1).max(30).default(15),
+        max_fetch: z.number().min(1).max(50).default(30),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!profile?.resume_text) throw new Error("Add your resume in Profile first.");
+
+    const boards = data.boards ?? DEFAULT_BOARDS;
+    const model = getModel();
+
+    // 1) Collect candidate job URLs across boards
+    const allUrls = new Set<string>();
+    for (const b of boards) {
+      try {
+        const res = await fetch(b, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+          },
+        });
+        if (!res.ok) continue;
+        const html = await res.text();
+        for (const u of extractJobUrlsFromListing(html)) allUrls.add(u);
+      } catch {
+        /* skip */
+      }
+    }
+
+    // 2) Dedupe vs already-saved jobs for this user
+    const { data: existing } = await supabase
+      .from("jobs")
+      .select("url")
+      .eq("user_id", userId);
+    const existingSet = new Set((existing ?? []).map((r) => (r.url ?? "").replace(/\/$/, "")));
+    const candidates = Array.from(allUrls)
+      .filter((u) => !existingSet.has(u.replace(/\/$/, "")))
+      .slice(0, data.max_fetch);
+
+    // 3) Fetch + extract + score each
+    type Scored = {
+      url: string;
+      job: z.infer<typeof JobExtractionSchema>;
+      match: z.infer<typeof MatchSchema>;
+    };
+    const scored: Scored[] = [];
+
+    for (const url of candidates) {
+      try {
+        const raw = await fetchJobPageText(url);
+        if (raw.length < 200) continue;
+
+        const { object: job } = await generateObject({
+          model,
+          schema: JobExtractionSchema,
+          prompt: `Extract the structured job posting. requires_german=true only if German is REQUIRED (not nice-to-have). Keywords = 10-15 ATS-critical hard skills.
+
+SOURCE ${url}:
+${raw.slice(0, 12000)}`,
+        });
+
+        if (job.requires_german) continue;
+
+        const { object: match } = await generateObject({
+          model,
+          schema: MatchSchema,
+          prompt: `Score fit 0-100. CANDIDATE: ${profile.candidate_summary ?? ""}
+SKILLS: ${JSON.stringify(profile.skills ?? [])}
+JOB: ${job.title} @ ${job.company} | KEYWORDS: ${job.keywords.join(", ")}
+DESC: ${job.description.slice(0, 5000)}`,
+        });
+
+        scored.push({ url, job, match });
+      } catch {
+        /* skip individual failures */
+      }
+    }
+
+    // 4) Filter + sort + insert top N
+    const keepers = scored
+      .filter((s) => s.match.match_score >= data.min_score)
+      .sort((a, b) => b.match.match_score - a.match.match_score)
+      .slice(0, data.max_keep);
+
+    const rows = keepers.map((s) => ({
+      user_id: userId,
+      title: s.job.title,
+      company: s.job.company,
+      location: s.job.location,
+      url: s.url,
+      source: "berlinstartupjobs.com",
+      description: s.job.description,
+      contract_type: s.job.contract_type,
+      remote_type: s.job.remote_type,
+      keywords: s.job.keywords,
+      match_score: s.match.match_score,
+      confidence: s.match.confidence,
+      matched_skills: s.match.matched_skills,
+      missing_skills: s.match.missing_skills,
+      fit_reasoning: s.match.fit_reasoning,
+      learning_gaps: s.match.learning_gaps,
+      status: "saved" as const,
+    }));
+
+    let inserted = 0;
+    if (rows.length > 0) {
+      const { data: ins, error } = await supabase.from("jobs").insert(rows).select("id");
+      if (error) throw new Error(error.message);
+      inserted = ins?.length ?? 0;
+    }
+
+    return {
+      discovered: allUrls.size,
+      considered: candidates.length,
+      scored: scored.length,
+      inserted,
+    };
+  });
