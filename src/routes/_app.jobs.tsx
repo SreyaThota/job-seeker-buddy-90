@@ -116,6 +116,7 @@ function AddJobPage() {
         <Button onClick={submit} disabled={busy || !hasResume} className="w-full gap-2">
           <Sparkles className="h-4 w-4" />
           {busy ? "Analyzing fit & scoring…" : "Analyze & score this job"}
+        </Button>
       </Card>
     </div>
   );
