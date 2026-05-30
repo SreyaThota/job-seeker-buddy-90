@@ -68,7 +68,25 @@ function AddJobPage() {
         </p>
       </div>
 
+      {!checkingResume && !hasResume && (
+        <Card className="p-6 border-warning/40 bg-warning/5 space-y-3">
+          <div className="flex items-start gap-3">
+            <UserCog className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+            <div>
+              <h2 className="font-display font-semibold">Add your resume first</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                We need your resume to score job fit and tailor the application package.
+              </p>
+            </div>
+          </div>
+          <Button asChild className="gap-2">
+            <Link to="/profile">Go to Profile</Link>
+          </Button>
+        </Card>
+      )}
+
       <Card className="p-6 space-y-5">
+
         <div>
           <Label htmlFor="url" className="flex items-center gap-2"><Link2 className="h-3.5 w-3.5" /> Job URL</Label>
           <Input
