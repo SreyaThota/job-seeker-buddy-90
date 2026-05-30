@@ -311,110 +311,118 @@ export const bulkImportJobs = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", userId)
       .maybeSingle();
-    if (!profile?.resume_text) throw new Error("Add your resume in Profile first.");
+
+    if (!profile?.resume_text) {
+      throw new Error("Add your resume in Profile first.");
+    }
 
     const boards = data.boards ?? DEFAULT_BOARDS;
     const model = getModel();
-
-    // 1) Collect candidate job URLs across boards
     const allUrls = new Set<string>();
-    for (const b of boards) {
+
+    for (const boardUrl of boards) {
       try {
-        const res = await fetch(b, {
+        const response = await fetch(boardUrl, {
           headers: {
             "User-Agent":
               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
           },
         });
-        if (!res.ok) continue;
-        const html = await res.text();
-        for (const u of extractJobUrlsFromListing(html)) allUrls.add(u);
+
+        if (!response.ok) continue;
+
+        const html = await response.text();
+        for (const jobUrl of extractJobUrlsFromListing(html)) {
+          allUrls.add(jobUrl);
+        }
       } catch {
-        /* skip */
+        continue;
       }
     }
 
-    // 2) Dedupe vs already-saved jobs for this user
-    const { data: existing } = await supabase
-      .from("jobs")
-      .select("url")
-      .eq("user_id", userId);
-    const existingSet = new Set((existing ?? []).map((r) => (r.url ?? "").replace(/\/$/, "")));
+    const { data: existing } = await supabase.from("jobs").select("url").eq("user_id", userId);
+    const existingSet = new Set((existing ?? []).map((row) => (row.url ?? "").replace(/\/$/, "")));
     const candidates = Array.from(allUrls)
-      .filter((u) => !existingSet.has(u.replace(/\/$/, "")))
+      .filter((url) => !existingSet.has(url.replace(/\/$/, "")))
       .slice(0, data.max_fetch);
 
-    // 3) Fetch + extract + score each
-    type Scored = {
+    type ScoredJob = {
       url: string;
       job: z.infer<typeof JobExtractionSchema>;
       match: z.infer<typeof MatchSchema>;
     };
-    const scored: Scored[] = [];
 
-    for (const url of candidates) {
+    const scored: ScoredJob[] = [];
+
+    for (const candidateUrl of candidates) {
       try {
-        const raw = await fetchJobPageText(url);
+        const raw = await fetchJobPageText(candidateUrl);
         if (raw.length < 200) continue;
 
         const { object: job } = await generateObject({
           model,
           schema: JobExtractionSchema,
-          prompt: `Extract the structured job posting. requires_german=true only if German is REQUIRED (not nice-to-have). Keywords = 10-15 ATS-critical hard skills.
-
-SOURCE ${url}:
-${raw.slice(0, 12000)}`,
+          prompt: [
+            "Extract the structured job posting.",
+            "Set requires_german=true only if German is required, not just nice-to-have.",
+            "Return 10-15 ATS-critical hard-skill keywords.",
+            "",
+            `SOURCE ${candidateUrl}:`,
+            raw.slice(0, 12000),
+          ].join("\n"),
         });
 
         if (job.requires_german) continue;
 
-
         const { object: match } = await generateObject({
           model,
           schema: MatchSchema,
-          prompt: `Score fit 0-100. CANDIDATE: ${profile.candidate_summary ?? ""}
-SKILLS: ${JSON.stringify(profile.skills ?? [])}
-JOB: ${job.title} @ ${job.company} | KEYWORDS: ${job.keywords.join(", ")}
-DESC: ${job.description.slice(0, 5000)}`,
+          prompt: [
+            `Score fit 0-100 for this candidate and role.`,
+            `CANDIDATE: ${profile.candidate_summary ?? ""}`,
+            `SKILLS: ${JSON.stringify(profile.skills ?? [])}`,
+            `JOB: ${job.title} @ ${job.company}`,
+            `KEYWORDS: ${job.keywords.join(", ")}`,
+            `DESC: ${job.description.slice(0, 5000)}`,
+          ].join("\n"),
         });
 
-        scored.push({ url, job, match });
+        scored.push({ url: candidateUrl, job, match });
       } catch {
-        /* skip individual failures */
+        continue;
       }
     }
 
-    // 4) Filter + sort + insert top N
     const keepers = scored
-      .filter((s) => s.match.match_score >= data.min_score)
+      .filter((entry) => entry.match.match_score >= data.min_score)
       .sort((a, b) => b.match.match_score - a.match.match_score)
       .slice(0, data.max_keep);
 
-    const rows = keepers.map((s) => ({
+    const rows = keepers.map((entry) => ({
       user_id: userId,
-      title: s.job.title,
-      company: s.job.company,
-      location: s.job.location,
-      url: s.url,
+      title: entry.job.title,
+      company: entry.job.company,
+      location: entry.job.location,
+      url: entry.url,
       source: "berlinstartupjobs.com",
-      description: s.job.description,
-      contract_type: s.job.contract_type,
-      remote_type: s.job.remote_type,
-      keywords: s.job.keywords,
-      match_score: s.match.match_score,
-      confidence: s.match.confidence,
-      matched_skills: s.match.matched_skills,
-      missing_skills: s.match.missing_skills,
-      fit_reasoning: s.match.fit_reasoning,
-      learning_gaps: s.match.learning_gaps,
+      description: entry.job.description,
+      contract_type: entry.job.contract_type,
+      remote_type: entry.job.remote_type,
+      keywords: entry.job.keywords,
+      match_score: entry.match.match_score,
+      confidence: entry.match.confidence,
+      matched_skills: entry.match.matched_skills,
+      missing_skills: entry.match.missing_skills,
+      fit_reasoning: entry.match.fit_reasoning,
+      learning_gaps: entry.match.learning_gaps,
       status: "saved" as const,
     }));
 
     let inserted = 0;
     if (rows.length > 0) {
-      const { data: ins, error } = await supabase.from("jobs").insert(rows).select("id");
+      const { data: insertedRows, error } = await supabase.from("jobs").insert(rows).select("id");
       if (error) throw new Error(error.message);
-      inserted = ins?.length ?? 0;
+      inserted = insertedRows?.length ?? 0;
     }
 
     return {
