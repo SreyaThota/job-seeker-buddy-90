@@ -424,3 +424,94 @@ DESC: ${job.description.slice(0, 5000)}`,
       inserted,
     };
   });
+
+// ---------- Bulk apply: generate package + mark applied for all good-fit saved jobs ----------
+
+export const bulkApplyFits = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        min_score: z.number().min(0).max(100).default(60),
+        max_apply: z.number().min(1).max(50).default(25),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!profile?.resume_text) throw new Error("Add your resume in Profile first.");
+
+    const { data: jobs } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("match_score", data.min_score)
+      .in("status", ["saved", "to_apply"])
+      .order("match_score", { ascending: false })
+      .limit(data.max_apply);
+
+    const list = jobs ?? [];
+    if (list.length === 0) return { applied: 0, failed: 0, total: 0 };
+
+    const model = getModel();
+    const PackageSchema = z.object({
+      tailored_resume: z.string(),
+      cover_letter: z.string(),
+      recruiter_message: z.string(),
+      interview_prep: z.string(),
+    });
+
+    let applied = 0;
+    let failed = 0;
+
+    for (const job of list) {
+      try {
+        const { object: output } = await generateObject({
+          model,
+          schema: PackageSchema,
+          prompt: `Create a truthful tailored application package. Never invent experience.
+
+Return:
+1) tailored_resume — full ATS-friendly markdown resume weaving in job keywords: ${((job.keywords as string[]) ?? []).join(", ")}
+2) cover_letter — 250-320 words to "Hiring Team at ${job.company}"
+3) recruiter_message — 80-120 word LinkedIn/email message
+4) interview_prep — markdown: 3 likely questions w/ outlines, 60s self-pitch, "why ${job.company}" answer, 3 questions to ask
+
+CANDIDATE RESUME:
+${profile.resume_text}
+
+PROFILE: ${profile.full_name ?? ""} | ${profile.email ?? ""} | ${profile.linkedin_url ?? ""} | ${profile.github_url ?? ""}
+${profile.university ?? ""} — ${profile.degree ?? ""}
+
+JOB: ${job.title} at ${job.company} (${job.location ?? ""})
+DESCRIPTION:
+${(job.description ?? "").slice(0, 6000)}`,
+        });
+
+        const { error } = await supabase
+          .from("jobs")
+          .update({
+            tailored_resume: output.tailored_resume,
+            cover_letter: output.cover_letter,
+            recruiter_message: output.recruiter_message,
+            interview_prep: output.interview_prep,
+            status: "applied",
+            applied_at: new Date().toISOString(),
+          })
+          .eq("id", job.id)
+          .eq("user_id", userId);
+        if (error) throw new Error(error.message);
+        applied++;
+      } catch {
+        failed++;
+      }
+    }
+
+    return { applied, failed, total: list.length };
+  });
+
