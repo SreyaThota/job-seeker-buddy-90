@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LayoutDashboard, Briefcase, User, LogOut } from "lucide-react";
+import { Sparkles, LayoutDashboard, Briefcase, User, LogOut, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app")({
@@ -25,9 +25,11 @@ function AppShell() {
 
   const nav = [
     { to: "/dashboard", label: "Pipeline", icon: LayoutDashboard },
+    { to: "/auto-apply", label: "Auto-apply", icon: Zap },
     { to: "/jobs", label: "Add job", icon: Briefcase },
     { to: "/profile", label: "Profile", icon: User },
   ] as const;
+
 
   return (
     <div className="min-h-screen bg-background">

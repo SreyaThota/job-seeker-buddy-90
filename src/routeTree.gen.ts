@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppJobsRouteImport } from './routes/_app.jobs'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppAutoApplyRouteImport } from './routes/_app.auto-apply'
 import { Route as AppJobsIdRouteImport } from './routes/_app.jobs.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -46,6 +47,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAutoApplyRoute = AppAutoApplyRouteImport.update({
+  id: '/auto-apply',
+  path: '/auto-apply',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppJobsIdRoute = AppJobsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -55,6 +61,7 @@ const AppJobsIdRoute = AppJobsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/auto-apply': typeof AppAutoApplyRoute
   '/dashboard': typeof AppDashboardRoute
   '/jobs': typeof AppJobsRouteWithChildren
   '/profile': typeof AppProfileRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/auto-apply': typeof AppAutoApplyRoute
   '/dashboard': typeof AppDashboardRoute
   '/jobs': typeof AppJobsRouteWithChildren
   '/profile': typeof AppProfileRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_app/auto-apply': typeof AppAutoApplyRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/jobs': typeof AppJobsRouteWithChildren
   '/_app/profile': typeof AppProfileRoute
@@ -80,14 +89,29 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/jobs' | '/profile' | '/jobs/$id'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/auto-apply'
+    | '/dashboard'
+    | '/jobs'
+    | '/profile'
+    | '/jobs/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/jobs' | '/profile' | '/jobs/$id'
+  to:
+    | '/'
+    | '/auth'
+    | '/auto-apply'
+    | '/dashboard'
+    | '/jobs'
+    | '/profile'
+    | '/jobs/$id'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/auth'
+    | '/_app/auto-apply'
     | '/_app/dashboard'
     | '/_app/jobs'
     | '/_app/profile'
@@ -144,6 +168,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/auto-apply': {
+      id: '/_app/auto-apply'
+      path: '/auto-apply'
+      fullPath: '/auto-apply'
+      preLoaderRoute: typeof AppAutoApplyRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/jobs/$id': {
       id: '/_app/jobs/$id'
       path: '/$id'
@@ -166,12 +197,14 @@ const AppJobsRouteWithChildren =
   AppJobsRoute._addFileChildren(AppJobsRouteChildren)
 
 interface AppRouteChildren {
+  AppAutoApplyRoute: typeof AppAutoApplyRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppJobsRoute: typeof AppJobsRouteWithChildren
   AppProfileRoute: typeof AppProfileRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAutoApplyRoute: AppAutoApplyRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppJobsRoute: AppJobsRouteWithChildren,
   AppProfileRoute: AppProfileRoute,
@@ -187,13 +220,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
