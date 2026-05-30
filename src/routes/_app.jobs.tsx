@@ -1,14 +1,17 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { addJob } from "@/lib/jobs.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Sparkles, Link2, FileText, AlertTriangle } from "lucide-react";
+import { Sparkles, Link2, FileText, AlertTriangle, UserCog } from "lucide-react";
 
 export const Route = createFileRoute("/_app/jobs")({
   head: () => ({ meta: [{ title: "Add job — ApplyAgent" }] }),
