@@ -1,14 +1,17 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { addJob } from "@/lib/jobs.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Sparkles, Link2, FileText, AlertTriangle } from "lucide-react";
+import { Sparkles, Link2, FileText, AlertTriangle, UserCog } from "lucide-react";
 
 export const Route = createFileRoute("/_app/jobs")({
   head: () => ({ meta: [{ title: "Add job — ApplyAgent" }] }),
@@ -17,10 +20,24 @@ export const Route = createFileRoute("/_app/jobs")({
 
 function AddJobPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const fn = useServerFn(addJob);
   const [url, setUrl] = useState("");
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const { data: hasResume, isLoading: checkingResume } = useQuery({
+    queryKey: ["profile-resume", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("resume_text")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return !!data?.resume_text && data.resume_text.length > 20;
+    },
+    enabled: !!user,
+  });
 
   const submit = async () => {
     if (!url && pasted.length < 50) {
@@ -51,7 +68,25 @@ function AddJobPage() {
         </p>
       </div>
 
+      {!checkingResume && !hasResume && (
+        <Card className="p-6 border-warning/40 bg-warning/5 space-y-3">
+          <div className="flex items-start gap-3">
+            <UserCog className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+            <div>
+              <h2 className="font-display font-semibold">Add your resume first</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                We need your resume to score job fit and tailor the application package.
+              </p>
+            </div>
+          </div>
+          <Button asChild className="gap-2">
+            <Link to="/profile">Go to Profile</Link>
+          </Button>
+        </Card>
+      )}
+
       <Card className="p-6 space-y-5">
+
         <div>
           <Label htmlFor="url" className="flex items-center gap-2"><Link2 className="h-3.5 w-3.5" /> Job URL</Label>
           <Input
@@ -78,7 +113,7 @@ function AddJobPage() {
           />
         </div>
 
-        <Button onClick={submit} disabled={busy} className="w-full gap-2">
+        <Button onClick={submit} disabled={busy || !hasResume} className="w-full gap-2">
           <Sparkles className="h-4 w-4" />
           {busy ? "Analyzing fit & scoring…" : "Analyze & score this job"}
         </Button>
