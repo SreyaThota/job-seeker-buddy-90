@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { getModel } from "./ai-gateway.server";
 
 // ---------- Helpers ----------
@@ -75,9 +75,9 @@ export const parseResume = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ resume_text: z.string().min(20) }).parse(d))
   .handler(async ({ data, context }) => {
     const model = getModel();
-    const { output } = await generateText({
+    const { object: output } = await generateObject({
       model,
-      output: Output.object({ schema: ResumeProfileSchema }),
+      schema: ResumeProfileSchema,
       prompt: `Analyze this resume and produce: (1) a punchy 3-4 sentence candidate summary in first person highlighting strengths for AI / ML / Working Student / Internship roles in Europe; (2) a flat list of concrete skills (technologies, frameworks, tools, domains).
 
 RESUME:
@@ -141,20 +141,19 @@ export const addJob = createServerFn({ method: "POST" })
     const model = getModel();
 
     // Step 1: extract structured job info
-    const extraction = await generateText({
+    const { object: job } = await generateObject({
       model,
-      output: Output.object({ schema: JobExtractionSchema }),
+      schema: JobExtractionSchema,
       prompt: `Extract the structured job posting from the text below. 'english_speaking'=true unless German is the working language. 'requires_german' = true only if German is required (not "nice to have"). Keywords = 10-15 most important hard skills and tools the recruiter ATS will scan for.
 
 SOURCE${sourceUrl ? ` URL: ${sourceUrl}` : ""}:
 ${raw.slice(0, 12000)}`,
     });
-    const job = extraction.output;
 
     // Step 2: match scoring
-    const matching = await generateText({
+    const { object: match } = await generateObject({
       model,
-      output: Output.object({ schema: MatchSchema }),
+      schema: MatchSchema,
       prompt: `Score how well this candidate fits this role on a scale of 0-100.
 - 80-100 = High Probability (apply with confidence)
 - 50-79 = Medium Probability
@@ -171,7 +170,6 @@ KEYWORDS: ${job.keywords.join(", ")}
 DESCRIPTION:
 ${job.description.slice(0, 6000)}`,
     });
-    const match = matching.output;
 
     const { data: inserted, error } = await supabase
       .from("jobs")
@@ -228,9 +226,9 @@ export const generatePackage = createServerFn({ method: "POST" })
       interview_prep: z.string(),
     });
 
-    const { output } = await generateText({
+    const { object: output } = await generateObject({
       model,
-      output: Output.object({ schema: PackageSchema }),
+      schema: PackageSchema,
       prompt: `You are an elite job-application copywriter. Produce a tailored application package for the candidate below. Stay TRUTHFUL — never invent experience, degrees, or companies. Re-order, re-phrase, and emphasize what's already there.
 
 Return four fields:
