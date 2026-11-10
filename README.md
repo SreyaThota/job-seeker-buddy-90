@@ -4,6 +4,12 @@ A personal job-application agent for students looking for working-student roles 
 
 **Live demo:** _link added after deployment_
 
+| | |
+|---|---|
+| **What it is** | Web app that matches a resume to job postings and drafts a tailored application for each |
+| **Stack** | React 19 · TanStack Start · Supabase (Postgres, auth, row-level security) · LLM API · Tailwind |
+| **Status** | Working prototype built with the Lovable app builder; not deployed yet |
+
 ## Features
 - **Resume analyzer**: parses an uploaded resume into skills, projects, education and experience.
 - **Job tracker**: add or bulk-import roles and keep them in one list with status tracking.
